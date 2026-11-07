@@ -164,9 +164,9 @@ function inferCategoryFor(data,name){
  if(!term)return UNCATEGORIZED;
  const learned=data.categoryPrefs[term];
  if(typeof learned==='string'&&categoryExists(data,learned))return learned;
- if(/キッチン.*スポンジ|食器|ラップ|アルミホイル|ホイル|クッキングシート|保存袋|ジップロック|キッチンペーパー|台所|ふきん|フライパン|弁当箱/.test(term))return 'cat-kitchen';
- if(/しょうゆ|醤油|みりん|砂糖|食塩|^塩$|味噌|みそ|ケチャップ|マヨネーズ|調味料|料理酒|スパイス|だし|胡椒|こしょう|パスタ|乾麺|レトルト|缶詰|お米/.test(term))return 'cat-food';
- if(/洗濯|柔軟剤|トイレットペーパー|ティッシュ|シャンプー|ボディソープ|歯磨|歯ブラシ|入浴|掃除|電池|ゴミ袋|ごみ袋|洗顔|消臭|除菌|ハンドソープ/.test(term))return 'cat-daily';
+ if(/キッチン.*スポンジ|食器|ラップ|アルミホイル|ホイル|クッキングシート|保存袋|ジップロック|キッチンペーパー|台所|ふきん|フライパン|弁当箱/.test(term))return categoryExists(data,'cat-kitchen')?'cat-kitchen':UNCATEGORIZED;
+ if(/しょうゆ|醤油|みりん|砂糖|食塩|^塩$|味噌|みそ|ケチャップ|マヨネーズ|調味料|料理酒|スパイス|だし|胡椒|こしょう|パスタ|乾麺|レトルト|缶詰|お米/.test(term))return categoryExists(data,'cat-food')?'cat-food':UNCATEGORIZED;
+ if(/洗濯|柔軟剤|トイレットペーパー|ティッシュ|シャンプー|ボディソープ|歯磨|歯ブラシ|入浴|掃除|電池|ゴミ袋|ごみ袋|洗顔|消臭|除菌|ハンドソープ/.test(term))return categoryExists(data,'cat-daily')?'cat-daily':UNCATEGORIZED;
  return UNCATEGORIZED;
 }
 function normalizeCategories(data){
@@ -230,7 +230,7 @@ function clearToast(){if(toastTimer!==null){clearTimeout(toastTimer);toastTimer=
 function moveItem(id,targetId){const from=state.items.findIndex(x=>x.id===id),to=state.items.findIndex(x=>x.id===targetId);if(from<0||to<0||from===to)return false;const [item]=state.items.splice(from,1);state.items.splice(to,0,item);save();return true}
 function reorderByDirection(id,direction){
  const x=one(id);if(!x)return;
- const group=state.items.filter(y=>!y.archived&&y.categoryId===x.categoryId);
+ const group=state.items.filter(y=>!y.archived&&y.categoryId===x.categoryId&&(!search||y.name.toLowerCase().includes(search.toLowerCase())));
  const p=group.findIndex(y=>y.id===id),other=group[p+direction];
  if(!other)return;
  const from=state.items.findIndex(y=>y.id===id),to=state.items.findIndex(y=>y.id===other.id);
