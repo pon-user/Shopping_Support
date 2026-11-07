@@ -7,7 +7,7 @@ function runtime(legacy=null){
  assert.ok(source);
  const src=source.replace("(()=>{'use strict';","return (()=>{'use strict';").replace(
   "\nrender();\n})();",
-  "\nrender();return {state:()=>state,modal:()=>modal,click,render,screenStock,screenSettings,sheet,storeItem,openItem,openPurchase,inferCategoryFor,purchaseSuggestions,categoryName};\n})();"
+  "\nrender();return {state:()=>state,modal:()=>modal,click,render,screenStock,screenSettings,sheet,storeItem,openItem,openPurchase,purchaseCommit,inferCategoryFor,purchaseSuggestions,categoryName};\n})();"
  );
  assert.notEqual(src,source);
  const persisted=new Map(),nodes={},events={},app={innerHTML:''},errors=[];
@@ -102,4 +102,18 @@ test('removing a built-in category never assigns orphaned ID for new products',(
  api.click({dataset:{act:'category-delete'}});
  assert.equal(api.inferCategoryFor(api.state(),'醤油'),'uncategorized');
  assert.equal(api.state().categories.some(c=>c.id==='cat-food'),false);
+});
+
+test('selected history suggestions are saved only after purchase confirmation',()=>{
+ const {api,nodes}=runtime();
+ const before=api.state().logs.length;
+ api.openPurchase('i1',{more:true});
+ Object.assign(nodes,{price:{value:''},purVolume:{value:''},store:{value:''},productDetail:{value:''},purUnit:{value:'mL'}});
+ api.click({dataset:{act:'suggest-store',value:'ドラッグストアA'}});
+ api.click({dataset:{act:'suggest-detail',value:'いつもの洗剤'}});
+ assert.equal(api.state().logs.length,before);
+ api.purchaseCommit();
+ assert.equal(api.state().logs.length,before+1);
+ assert.equal(api.state().logs.at(-1).store,'ドラッグストアA');
+ assert.equal(api.state().logs.at(-1).detail,'いつもの洗剤');
 });
