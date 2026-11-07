@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#f6f7f4" />
-<title>ストックノート | UXレビュー v0.7</title>
+<title>ストックノート | UXレビュー v0.8</title>
 <style>
 @import url('data:text/css,');
 :root{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;-webkit-font-smoothing:antialiased;color-scheme:light}
@@ -104,6 +104,19 @@ body[data-theme="dark-blue"] .tag{color:#a5cff8}
 .discount-panel{padding:18px}.discount-panel .formrow{margin:0 0 18px}.discount-results{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px 0 10px;border-top:1px solid var(--line)}
 .discount-results div{display:flex;flex-direction:column;gap:6px}.discount-results small{font-size:12px;color:var(--muted)}.discount-results strong{font-size:23px;letter-spacing:-.03em}
 @media(max-width:360px){.bundle-switch{flex-direction:column;align-items:flex-start}.tool-launch{padding:14px 12px}}
+
+/* v0.8: user-managed inventory categories and entry assistance */
+.category-section{margin:0 0 12px;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+.category-title{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;background:var(--surface2);color:var(--ink);padding:13px 14px;min-height:46px;text-align:left}
+.category-title strong{font-size:14px}.category-title span{font-size:12px;color:var(--muted)}
+.category-products{padding:0 10px}.category-products .inventory-item:last-child{border-bottom:0}
+.category-settings{display:flex;flex-direction:column;gap:8px}.category-setting{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm)}
+.category-setting button{min-height:40px}.category-setting small{color:var(--muted)}
+.category-add{display:flex;gap:8px;margin-top:10px}.category-add input{flex:1;min-width:0}
+.category-select-row{display:flex;flex-direction:column;gap:6px;margin:12px 0}.category-select-row .field{width:100%}
+.suggestions{margin:8px 0 12px}.suggestions>span{font-size:11px;color:var(--muted)}.suggestions>div{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.suggest-chip{border:1px solid var(--line);background:var(--surface2);color:var(--ink);font-size:12px;max-width:100%;overflow-wrap:anywhere;text-align:left;border-radius:11px;padding:9px 11px;min-height:40px}
+@media(max-width:360px){.category-add{flex-wrap:wrap}.category-add button{flex-shrink:0}}
 </style>
 <!-- App icon: user-approved deep-green stock/check logo (2026-11-04) -->
 <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon-32.png?v=1" />
@@ -131,13 +144,80 @@ next:10});
 let state;try{state=JSON.parse(localStorage.getItem(KEY)||'null');if(!state||state.schemaVersion!=='UX-DEMO-0.3')state=seed()}catch(_){state=seed()}
 // Retired cute theme is converted without discarding any saved stock or history.
 if(!['stylish','dark-blue'].includes(state.theme))state.theme='stylish';
+normalizeCategories(state);
 let tab='shop',modal=null,mode='active',search='',compareLink='',lastUndo=null,toast=null,seq=0,reordering=false,toastTimer=null,dragging=null;
 const HISTORY_PAGE_SIZE=10;
 let historyFilter='all',historyPage=0,historyCollapsed=false;
+const collapsedCategoryIds=new Set();
 // ホーム画面へ追加したiPhoneでは画面上部のステータスバーを避ける。
 document.body.classList.toggle('standalone',!!(navigator.standalone||window.matchMedia?.('(display-mode: standalone)').matches));const freshCompare=()=>({a:{price:'',volume:''},b:{price:'',volume:''}});
 let cmp=freshCompare();
 let toolView='home', bundleMode=false, bundleCount={a:'',b:''}, discount={price:'',percent:''};
+
+const CATEGORY_LIMIT=5;
+const UNCATEGORIZED='uncategorized';
+const DEFAULT_CATEGORIES=[{id:'cat-daily',name:'日用品'},{id:'cat-kitchen',name:'キッチン用品'},{id:'cat-food',name:'食品・調味料'}];
+const cleanedName=value=>String(value||'').normalize('NFKC').trim().toLowerCase().replace(/\s+/g,' ');
+function categoryName(id){return id===UNCATEGORIZED?'未分類':state.categories.find(c=>c.id===id)?.name||'未分類'}
+function categoryExists(data,id){return id===UNCATEGORIZED||data.categories.some(c=>c.id===id)}
+function inferCategoryFor(data,name){
+ const term=cleanedName(name);
+ if(!term)return UNCATEGORIZED;
+ const learned=data.categoryPrefs[term];
+ if(typeof learned==='string'&&categoryExists(data,learned))return learned;
+ if(/キッチン.*スポンジ|食器|ラップ|アルミホイル|ホイル|クッキングシート|保存袋|ジップロック|キッチンペーパー|台所|ふきん|フライパン|弁当箱/.test(term))return 'cat-kitchen';
+ if(/しょうゆ|醤油|みりん|砂糖|食塩|^塩$|味噌|みそ|ケチャップ|マヨネーズ|調味料|料理酒|スパイス|だし|胡椒|こしょう|パスタ|乾麺|レトルト|缶詰|お米/.test(term))return 'cat-food';
+ if(/洗濯|柔軟剤|トイレットペーパー|ティッシュ|シャンプー|ボディソープ|歯磨|歯ブラシ|入浴|掃除|電池|ゴミ袋|ごみ袋|洗顔|消臭|除菌|ハンドソープ/.test(term))return 'cat-daily';
+ return UNCATEGORIZED;
+}
+function normalizeCategories(data){
+ if(!Array.isArray(data.categories)||!data.categories.length)data.categories=DEFAULT_CATEGORIES.map(c=>({...c}));
+ else{
+  const valid=[],usedId=new Set(),usedName=new Set();
+  for(const c of data.categories.slice(0,50)){
+   if(!c||typeof c.id!=='string'||typeof c.name!=='string')continue;
+   const id=c.id.trim(),name=c.name.trim(),norm=cleanedName(name);
+   if(!id||id===UNCATEGORIZED||id.length>70||!name||name.length>24||usedId.has(id)||usedName.has(norm))continue;
+   valid.push({id,name});usedId.add(id);usedName.add(norm);
+   if(valid.length===CATEGORY_LIMIT)break;
+  }
+  data.categories=valid.length?valid:DEFAULT_CATEGORIES.map(c=>({...c}));
+ }
+ if(!data.categoryPrefs||typeof data.categoryPrefs!=='object'||Array.isArray(data.categoryPrefs))data.categoryPrefs={};
+ const cleanPrefs=Object.create(null);
+ for(const [key,id] of Object.entries(data.categoryPrefs).slice(0,1000)){
+  const normalized=cleanedName(key);
+  if(normalized&&normalized.length<=100&&typeof id==='string'&&categoryExists(data,id))cleanPrefs[normalized]=id;
+ }
+ data.categoryPrefs=cleanPrefs;
+ for(const item of data.items||[]){
+  if(!categoryExists(data,item.categoryId))item.categoryId=inferCategoryFor(data,item.name);
+ }
+ return data;
+}
+function learnCategory(name,id){
+ const key=cleanedName(name);
+ if(key&&categoryExists(state,id))state.categoryPrefs[key]=id;
+}
+function purchaseSuggestions(type,itemId){
+ const seen=new Set(),out=[];
+ for(const log of state.logs.slice().reverse()){
+  if(log.kind!=='purchase'||type==='detail'&&(!itemId||log.itemId!==itemId))continue;
+  const v=String(log[type]||'').trim(),key=cleanedName(v);
+  if(v&&!seen.has(key)){seen.add(key);out.push(v)}
+  if(out.length>=4)break;
+ }
+ return out;
+}
+function suggestionChips(type,itemId){
+ const values=purchaseSuggestions(type,itemId);
+ if(!values.length)return '';
+ const title=type==='store'?'最近の店舗':'この商品で購入した商品名';
+ return '<div class="suggestions"><span>'+title+'</span><div>'+
+ values.map(v=>'<button type="button" class="suggest-chip" data-act="suggest-'+type+'" data-value="'+esc(v)+'">'+esc(v)+'</button>').join('')+
+ '</div></div>';
+}
+
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(_){}}
 function nextid(prefix){return prefix+(++state.next)}
 function esc(x){return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -148,27 +228,36 @@ function pendingItems(){return state.items.filter(pending)}
 function stockStatus(x){return x.cycle&&x.qty<x.target?(x.qty===0?'empty':'low'):'normal'}
 function clearToast(){if(toastTimer!==null){clearTimeout(toastTimer);toastTimer=null}toast=null;lastUndo=null}
 function moveItem(id,targetId){const from=state.items.findIndex(x=>x.id===id),to=state.items.findIndex(x=>x.id===targetId);if(from<0||to<0||from===to)return false;const [item]=state.items.splice(from,1);state.items.splice(to,0,item);save();return true}
-function reorderByDirection(id,direction){const visible=state.items.filter(x=>!x.archived),p=visible.findIndex(x=>x.id===id),other=visible[p+direction];if(p<0||!other)return;const from=state.items.findIndex(x=>x.id===id),to=state.items.findIndex(x=>x.id===other.id);[state.items[from],state.items[to]]=[state.items[to],state.items[from]];save();render()}
+function reorderByDirection(id,direction){
+ const x=one(id);if(!x)return;
+ const group=state.items.filter(y=>!y.archived&&y.categoryId===x.categoryId);
+ const p=group.findIndex(y=>y.id===id),other=group[p+direction];
+ if(!other)return;
+ const from=state.items.findIndex(y=>y.id===id),to=state.items.findIndex(y=>y.id===other.id);
+ [state.items[from],state.items[to]]=[state.items[to],state.items[from]];
+ save();render();
+}
 function allNeeded(){return pendingItems().length+state.manual.filter(m=>!m.done).length}
 function clock(iso){const d=new Date(iso);return Number.isNaN(+d)?'-':d.toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}
 function resultScreen(){return ({shop:screenShop,stock:screenStock,compare:screenCompare,history:screenHistory,settings:screenSettings})[tab]()}
-function render(){document.body.dataset.theme=state.theme;document.body.classList.toggle('modal-open',!!modal);document.querySelector('meta[name="theme-color"]').content=state.theme==='dark-blue'?'#0d1828':'#f4f6f5';document.getElementById('app').innerHTML=`<div class="shell"><header class="top"><div class="brand"><div class="logo">${'S.'}</div><div><b>stock note.</b><small>SHOPPING SUPPORT</small></div></div><span class="demo">UX REVIEW · v0.7</span></header>${resultScreen()}</div><nav class="nav" aria-label="主要メニュー">${[['shop','買い物'],['stock','在庫'],['compare','買い物支援'],['history','履歴'],['settings','設定']].map(([id,name])=>`<button data-act="tab" data-id="${id}" class="${tab===id?'active':''}" aria-current="${tab===id?'page':'false'}">${svg(id)}<span>${name}</span></button>`).join('')}</nav>${modal?sheet():''}${toast?`<div class="toast" role="status" aria-live="polite"><span>${esc(toast.text)}</span>${lastUndo?'<button data-act="undo">元に戻す</button>':''}<button data-act="toast-close" aria-label="通知を閉じる">×</button></div>`:''}`;save()}
+function render(){document.body.dataset.theme=state.theme;document.body.classList.toggle('modal-open',!!modal);document.querySelector('meta[name="theme-color"]').content=state.theme==='dark-blue'?'#0d1828':'#f4f6f5';document.getElementById('app').innerHTML=`<div class="shell"><header class="top"><div class="brand"><div class="logo">${'S.'}</div><div><b>stock note.</b><small>SHOPPING SUPPORT</small></div></div><span class="demo">UX REVIEW · v0.8</span></header>${resultScreen()}</div><nav class="nav" aria-label="主要メニュー">${[['shop','買い物'],['stock','在庫'],['compare','買い物支援'],['history','履歴'],['settings','設定']].map(([id,name])=>`<button data-act="tab" data-id="${id}" class="${tab===id?'active':''}" aria-current="${tab===id?'page':'false'}">${svg(id)}<span>${name}</span></button>`).join('')}</nav>${modal?sheet():''}${toast?`<div class="toast" role="status" aria-live="polite"><span>${esc(toast.text)}</span>${lastUndo?'<button data-act="undo">元に戻す</button>':''}<button data-act="toast-close" aria-label="通知を閉じる">×</button></div>`:''}`;save()}
 function head(k,h,desc){return `<header class="pagehead"><div class="kicker">${k}</div><h1>${h}</h1>${desc?`<p>${desc}</p>`:''}</header>`}
 function screenShop(){const auto=pendingItems(),manual=state.manual.filter(m=>!m.done),post=state.items.filter(x=>x.postpone&&!x.archived&&x.cycle&&x.qty<x.target);return `${head('SHOPPING LIST','買い物リスト','')}<section class="hero"><div class="eyebrow">補充・買い物の予定</div><div class="count"><strong>${auto.length+manual.length}</strong><span>件のお買い物</span></div><div class="sub">在庫から自動追加 ${auto.length}件 ・ メモ ${manual.length}件</div></section><div class="h2"><h2>補充が必要</h2><span class="hint">目標数まで自動で表示</span></div><div class="panel">${auto.length?auto.map(x=>`<article class="item"><span class="list-marker ${stockStatus(x)==='empty'?'is-zero':stockStatus(x)}" aria-hidden="true"></span><div class="itembody"><div class="itemtitle">${esc(x.name)}</div><div class="itemmeta">在庫 ${x.qty}${esc(unit(x))} → 目標 ${x.target}${esc(unit(x))}<br/><span class="badge-green">あと ${Math.max(0,x.target-x.qty)}${esc(unit(x))}</span>必要</div></div><div class="itemactions"><button class="secondary" style="min-height:42px;padding:9px;font-size:11px" aria-label="${esc(x.name)}を今回は見送る" data-act="postpone" data-id="${x.id}" title="今回は見送る">あとで</button><button class="primary" data-act="buy" data-id="${x.id}">購入</button></div></article>`).join(''):`<div class="empty"><strong>補充が必要なものはありません</strong>目標数に達すると自動で非表示になります。</div>`}</div><div class="h2"><h2>買い物メモ</h2><button class="linkbtn" data-act="add-manual">＋ 追加</button></div><div class="panel">${manual.length?manual.map(m=>`<div class="item"><span class="list-marker neutral" aria-hidden="true"></span><div class="itembody"><div class="itemtitle">${esc(m.name)}</div><div class="itemmeta">在庫とは連動しないメモ</div></div><button class="secondary" data-act="manual-done" data-id="${m.id}">購入済み</button></div>`).join(''):`<div class="empty">メモはありません。買いたいものを自由に追加できます。</div>`}</div>${post.length?`<div class="h2"><h2>今回は見送ったもの</h2><span class="hint">${post.length}件</span></div><div class="panel">${post.map(x=>`<div class="item"><span class="list-marker ${stockStatus(x)==='empty'?'is-zero':stockStatus(x)}" aria-hidden="true"></span><div class="itembody"><div class="itemtitle">${esc(x.name)}</div><div class="itemmeta">在庫 ${x.qty}${esc(unit(x))}／目標 ${x.target}${esc(unit(x))}</div></div><button class="secondary" data-act="resume" data-id="${x.id}">戻す</button></div>`).join('')}</div>`:''}`}
 function screenStock(){
  const visible=state.items.filter(x=>!x.archived),filtered=visible.filter(x=>x.name.toLowerCase().includes(search.toLowerCase()));
+ const groups=[...state.categories,{id:UNCATEGORIZED,name:'未分類'}].map(c=>({id:c.id,name:c.name,items:filtered.filter(x=>x.categoryId===c.id)})).filter(g=>g.items.length);
  return `${head('MY INVENTORY','在庫一覧','在庫は未開封品のみ。')}
  <div class="grid2 stock-summary"><div class="metric"><div class="m-head">管理中の商品</div><div class="m-val">${visible.length}<span class="metric-unit">種類</span></div></div><div class="metric"><div class="m-head">補充の対象</div><div class="m-val">${pendingItems().length}<span class="metric-unit">種類</span></div></div></div>
  <div class="toolbar stock-toolbar">${reordering?`<div class="reorder-intro">長押しして移動、または矢印で並び替え</div>`:`<input id="search" class="field" enterkeyhint="done" data-next="" value="${esc(search)}" placeholder="商品を探す" aria-label="商品を探す"/>`}
  <button class="secondary toolbar-button" data-act="toggle-reorder" aria-pressed="${reordering}">${reordering?'完了':'並び替え'}</button>${reordering?'':`<button class="secondary toolbar-button add-item" data-act="add-item">＋ 商品</button>`}</div>
- <section class="panel inventory-list" aria-label="在庫商品の一覧">${filtered.length?filtered.map((x,index)=>{
+ <section class="panel inventory-list" aria-label="在庫商品の一覧">${filtered.length?groups.map(group=>`<section class="category-section" data-category-section><button type="button" class="category-title" data-act="category-toggle" data-id="${esc(group.id)}" aria-expanded="${!collapsedCategoryIds.has(group.id)}"><strong>${esc(group.name)}</strong><span>${group.items.length}件 ${collapsedCategoryIds.has(group.id)?'＋':'−'}</span></button><div class="category-products" ${collapsedCategoryIds.has(group.id)?'hidden':''}>${group.items.map((x,index)=>{
  const status=stockStatus(x),label=status==='empty'?'在庫がありません':status==='low'?'補充目安に達しています':'通常の在庫';
  return `<article class="item inventory-item ${status==='normal'?'':`stock-${status}`} ${reordering?'is-sortable':''}" data-inventory-row data-order-id="${x.id}" data-name="${esc(x.name.toLowerCase())}">
  <span class="stock-mark ${status==='empty'?'is-zero':status}" title="${label}" aria-label="${label}" role="img"><span></span></span>
  <div class="itembody"><div class="stock-name"><${reordering?'span':'button'} class="${reordering?'itemtitle':'cardbutton itemtitle'}" ${reordering?'':`data-act="edit-item" data-id="${x.id}"`} >${esc(x.name)}${reordering?'':' ›'}</${reordering?'span':'button'}></div>
  <div class="itemmeta">在庫 <strong class="stock-count">${x.qty}</strong>${esc(unit(x))} <span class="stock-slash">/</span> 目標 ${x.target}${esc(unit(x))}</div></div>
- <div class="itemactions">${reordering?`<div class="sort-buttons"><button type="button" class="sort-arrow" data-act="reorder-up" data-id="${x.id}" aria-label="${esc(x.name)}を上へ" ${index===0?'disabled':''}>↑</button><button type="button" class="sort-arrow" data-act="reorder-down" data-id="${x.id}" aria-label="${esc(x.name)}を下へ" ${index===filtered.length-1?'disabled':''}>↓</button></div><button type="button" class="drag-handle" data-act="drag-handle" data-id="${x.id}" aria-label="${esc(x.name)}をドラッグして並び替え" title="長押しして移動">☰</button>`:`<button class="iconbtn stock-edit" data-act="edit-item" data-id="${x.id}" aria-label="${esc(x.name)}を編集">···</button><button class="iconbtn solid stock-decrease" data-act="open" data-id="${x.id}" ${x.qty===0?'disabled':''} aria-label="${esc(x.name)}を開封して在庫を1減らす">−1</button>`}</div>
- </article>`}).join(''):`<div class="empty"><strong>該当する商品はありません</strong>新しく登録できます。</div>`}</section>
+ <div class="itemactions">${reordering?`<div class="sort-buttons"><button type="button" class="sort-arrow" data-act="reorder-up" data-id="${x.id}" aria-label="${esc(x.name)}を上へ" ${index===0?'disabled':''}>↑</button><button type="button" class="sort-arrow" data-act="reorder-down" data-id="${x.id}" aria-label="${esc(x.name)}を下へ" ${index===group.items.length-1?'disabled':''}>↓</button></div><button type="button" class="drag-handle" data-act="drag-handle" data-id="${x.id}" aria-label="${esc(x.name)}をドラッグして並び替え" title="長押しして移動">☰</button>`:`<button class="iconbtn stock-edit" data-act="edit-item" data-id="${x.id}" aria-label="${esc(x.name)}を編集">···</button><button class="iconbtn solid stock-decrease" data-act="open" data-id="${x.id}" ${x.qty===0?'disabled':''} aria-label="${esc(x.name)}を開封して在庫を1減らす">−1</button>`}</div>
+ </article>`}).join('')}</div></section>`).join(''):`<div class="empty"><strong>該当する商品はありません</strong>新しく登録できます。</div>`}</section>
  <p class="stock-legend"><span class="legend-swatch low"></span>補充目安 <span class="legend-swatch is-zero"></span>在庫なし <span class="legend-swatch normal"></span>十分</p>
  <p class="stock-note">開封したら「−1」。</p>`
 }
@@ -287,11 +376,12 @@ function purchaseCommit(){const m=modal,x=one(m.id),man=state.manual.find(y=>y.i
 const purchasedVu=m.more?(document.getElementById('purUnit')?.value||'mL'):x?.vu;modal=null;updateWithUndo(()=>{if(x){x.qty+=qty;if(x.qty>=x.target){x.cycle=false;x.postpone=false}state.logs.push({id:nextid('log'),kind:'purchase',itemId:x.id,name:x.name,qty,unit:unit(x),when:new Date().toISOString(),price,volume:vol,vu:m.more?purchasedVu:null,store,detail})}else if(man){man.done=true;state.logs.push({id:nextid('log'),kind:'purchase',itemId:'',name:man.name,qty,unit:'件',when:new Date().toISOString(),price,store,detail})}},x?'購入しました。在庫とリストを更新しました':'買い物メモを完了しました');}
 function storeItem(){const x=one(modal.id),name=document.getElementById('itemName').value.trim(),qty=safeInt(document.getElementById('itemQty').value||'0'),line=safeInt(document.getElementById('itemLine').value||'1'),target=safeInt(document.getElementById('itemTarget').value||'2'),u=document.getElementById('itemUnit').value;if(!name){alert('管理名を入力してください');return}if(qty===null||line===null||target===null||target<=line){alert('在庫・補充ラインは0以上の整数、目標は補充ラインより大きい値にしてください');return}const detail=document.getElementById('itemDetail')?.value.trim()||'',vs=document.getElementById('itemVolume')?.value||'',volume=vs!==''?Number(vs):null;if(volume!==null&&(!(volume>0)||!Number.isFinite(volume))){alert('容量は0より大きい数値を入力してください');return}const vu=document.getElementById('itemVu')?.value||'mL';const before=JSON.stringify(state);if(x){const delta=qty-x.qty;x.name=name;x.line=line;x.target=target;x.qty=qty;x.unit=u;x.detail=detail;x.volume=volume;x.vu=vu;if(qty>=target){x.cycle=false;x.postpone=false}else if(qty<=line){x.cycle=true}if(delta)state.logs.push({id:nextid('log'),kind:'adjust',itemId:x.id,name,qty:delta,unit:u,when:new Date().toISOString()})}else{const newx={id:nextid('i'),name,detail,volume,vu,unit:u,qty,line,target,cycle:qty<=line,postpone:false,archived:false};state.items.unshift(newx);state.logs.push({id:nextid('log'),kind:'adjust',itemId:newx.id,name,qty,unit:u,when:new Date().toISOString()})}modal=null;const curr=JSON.stringify(state);if(before!==curr)notify('保存しました',()=>{state=JSON.parse(before);render()});else render()}
 function openItem(id){modal={type:'item',id:id||''};render()}
-function reset(){state=seed();tab='shop';modal=null;search='';compareLink='';save();notify('サンプルデータに戻しました')}
+function reset(){state=seed();normalizeCategories(state);tab='shop';modal=null;search='';compareLink='';save();notify('サンプルデータに戻しました')}
 function exportJson(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='shopping-support-ux-demo.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('デモ用JSONを出力しました')}
-function importJson(){const el=document.createElement('input');el.type='file';el.accept='application/json,.json';el.addEventListener('change',()=>{if(!el.files?.[0])return;const fr=new FileReader();fr.onload=()=>{try{const v=JSON.parse(fr.result);if(v.schemaVersion!=='UX-DEMO-0.3'||!Array.isArray(v.items)||!Array.isArray(v.logs)||!Array.isArray(v.manual)||!['cute','stylish','dark-blue'].includes(v.theme))throw Error('形式が違います');if(v.items.some(z=>!z.id||!Number.isSafeInteger(z.qty)||z.qty<0||!z.name)||v.items.length>10000)throw Error('商品データが不正です');modal={type:'confirm',title:'データを置き換えますか？',message:'いまのデモデータは上書きされます。先にJSONを出力しておくことをおすすめします。',confirmText:'データを復元',callback:()=>{state=v;if(state.theme==='cute')state.theme='stylish';tab='shop';notify('デモのデータを復元しました')}};render()}catch(e){alert('読み込みできませんでした：'+e.message)}};fr.readAsText(el.files[0]);});el.click()}
+function importJson(){const el=document.createElement('input');el.type='file';el.accept='application/json,.json';el.addEventListener('change',()=>{if(!el.files?.[0])return;const fr=new FileReader();fr.onload=()=>{try{const v=JSON.parse(fr.result);if(v.schemaVersion!=='UX-DEMO-0.3'||!Array.isArray(v.items)||!Array.isArray(v.logs)||!Array.isArray(v.manual)||!['cute','stylish','dark-blue'].includes(v.theme))throw Error('形式が違います');if(v.items.some(z=>!z.id||!Number.isSafeInteger(z.qty)||z.qty<0||!z.name)||v.items.length>10000)throw Error('商品データが不正です');modal={type:'confirm',title:'データを置き換えますか？',message:'いまのデモデータは上書きされます。先にJSONを出力しておくことをおすすめします。',confirmText:'データを復元',callback:()=>{state=v;if(state.theme==='cute')state.theme='stylish';normalizeCategories(state);tab='shop';notify('デモのデータを復元しました')}};render()}catch(e){alert('読み込みできませんでした：'+e.message)}};fr.readAsText(el.files[0]);});el.click()}
 function click(el){const act=el.dataset.act,id=el.dataset.id;if(!act)return;
 switch(act){case 'tab':if(id==='compare'){cmp=freshCompare();bundleCount={a:'',b:''};bundleMode=false;discount={price:'',percent:''};toolView='home'}if(id==='history'&&tab!=='history'){historyFilter='all';historyPage=0;historyCollapsed=false}tab=id;modal=null;clearToast();reordering=false;render();window.scrollTo(0,0);break;
+case 'category-toggle':if(!categoryExists(state,id))break;collapsedCategoryIds.has(id)?collapsedCategoryIds.delete(id):collapsedCategoryIds.add(id);render();break;
 case 'history-filter':if(!['all','purchase','open','adjust'].includes(id))break;historyFilter=id;historyPage=0;historyCollapsed=false;render();break;
 case 'history-toggle':historyCollapsed=!historyCollapsed;render();break;
 case 'history-prev':historyPage=Math.max(0,historyPage-1);render();break;
@@ -336,12 +426,12 @@ document.addEventListener('pointermove',e=>{
  if(!dragging||dragging.pointerId!==e.pointerId)return;
  document.querySelectorAll('.drop-target').forEach(el=>el.classList.remove('drop-target'));
  const over=document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-order-id]');
- if(over&&over.dataset.orderId!==dragging.id)over.classList.add('drop-target');
+ if(over&&over.dataset.orderId!==dragging.id&&one(over.dataset.orderId)?.categoryId===one(dragging.id)?.categoryId)over.classList.add('drop-target');
 });
 document.addEventListener('pointerup',e=>{
  if(!dragging||dragging.pointerId!==e.pointerId)return;
  const over=document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-order-id]');
- const changed=over?moveItem(dragging.id,over.dataset.orderId):false;
+ const changed=over&&one(over.dataset.orderId)?.categoryId===one(dragging.id)?.categoryId?moveItem(dragging.id,over.dataset.orderId):false;
  dragging=null;document.querySelectorAll('.is-dragging,.drop-target').forEach(el=>el.classList.remove('is-dragging','drop-target'));
  if(changed)render();
 });
