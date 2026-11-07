@@ -7,7 +7,7 @@
 - 分類IDは固定。名前の変更は既存商品への参照を保持し、削除時は商品・候補設定の移動先を指定する。履歴スナップショットは書き換えない。
 - 購入モーダルに、購入履歴から取得した全商品共通の店舗候補、該当管理商品IDに限定した具体商品名候補を追加。入力は任意。
 - 既存のlocalStorageキー、デモJSON識別子UX-DEMO-0.3、在庫／購入履歴の内容、テーマ・正式アプリアイコンを維持。旧データの分類は読込時に補完。
-- 新規tests/inventory-categories.test.mjsと既存4本の検査で24ケースを模擬実行、すべて通過。Node GitHub Actions CI・実機・最新Pages反映は未確認。
+- 新規tests/inventory-categories.test.mjsと既存4本の検査で25ケースを模擬実行、すべて通過。Node GitHub Actions CI・実機・最新Pages反映は未確認。
 
 ---
 
