@@ -44,6 +44,7 @@ test('suggested category changes on input; manual correction is remembered only 
  nodes.itemCategory={value:'uncategorized'};
  events.input({target:{id:'itemName',value:'醤油',dataset:{}}});
  assert.equal(nodes.itemCategory.value,'cat-food');
+ nodes.itemCategory.value='cat-kitchen';
  events.change({target:{id:'itemCategory',value:'cat-kitchen',dataset:{}}});
  Object.assign(nodes,{itemName:{value:'醤油'},itemQty:{value:''},itemLine:{value:''},
  itemTarget:{value:''},itemUnit:{value:'本'},itemDetail:{value:''},itemVolume:{value:''},itemVu:{value:'mL'}});
@@ -92,4 +93,13 @@ test('purchase store suggestions global and product names scoped to managed item
  assert.match(api.sheet(),/data-act="suggest-detail"/);
  nodes.store={value:''};api.click({dataset:{act:'suggest-store',value:'スーパーB'}});
  assert.equal(nodes.store.value,'スーパーB');
+});
+
+test('removing a built-in category never assigns orphaned ID for new products',()=>{
+ const {api,nodes}=runtime();
+ api.click({dataset:{act:'category-remove',id:'cat-food'}});
+ nodes.categoryTarget={value:'uncategorized'};
+ api.click({dataset:{act:'category-delete'}});
+ assert.equal(api.inferCategoryFor(api.state(),'醤油'),'uncategorized');
+ assert.equal(api.state().categories.some(c=>c.id==='cat-food'),false);
 });
