@@ -44,6 +44,7 @@ test('new product inputs start blank, default stock values applied at save',()=>
 test('comparison needs only price and numeric quantity; starts blank',()=>{
   const {api}=runtime();
   assert.equal(api.cmp().a.price,'');assert.equal(api.cmp().b.volume,'');
+  api.click({dataset:{act:'tool-select',id:'unit'}});
   const cmp=api.screenCompare();
   assert.doesNotMatch(cmp,/id="cu-[ab]"/);
   assert.match(cmp,/数量1あたり/);
@@ -54,6 +55,7 @@ test('comparison needs only price and numeric quantity; starts blank',()=>{
 });
 test('comparison keyboard sequence and new-form labels',()=>{
   const {api,listeners,nodes}=runtime();
+  api.click({dataset:{act:'tool-select',id:'unit'}});
   const cmp=api.screenCompare();
   for(const [id,next] of [['cp-a','cv-a'],['cv-a','cp-b'],['cp-b','cv-b'],['cv-b','']]){
     const tag=cmp.match(new RegExp('<input id="'+id+'"[^>]*>'))?.[0];
