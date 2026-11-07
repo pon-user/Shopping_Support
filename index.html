@@ -144,7 +144,6 @@ next:10});
 let state;try{state=JSON.parse(localStorage.getItem(KEY)||'null');if(!state||state.schemaVersion!=='UX-DEMO-0.3')state=seed()}catch(_){state=seed()}
 // Retired cute theme is converted without discarding any saved stock or history.
 if(!['stylish','dark-blue'].includes(state.theme))state.theme='stylish';
-normalizeCategories(state);
 let tab='shop',modal=null,mode='active',search='',compareLink='',lastUndo=null,toast=null,seq=0,reordering=false,toastTimer=null,dragging=null;
 const HISTORY_PAGE_SIZE=10;
 let historyFilter='all',historyPage=0,historyCollapsed=false;
@@ -171,7 +170,7 @@ function inferCategoryFor(data,name){
  return UNCATEGORIZED;
 }
 function normalizeCategories(data){
- if(!Array.isArray(data.categories)||!data.categories.length)data.categories=DEFAULT_CATEGORIES.map(c=>({...c}));
+ if(!Array.isArray(data.categories))data.categories=DEFAULT_CATEGORIES.map(c=>({...c}));
  else{
   const valid=[],usedId=new Set(),usedName=new Set();
   for(const c of data.categories.slice(0,50)){
@@ -181,7 +180,7 @@ function normalizeCategories(data){
    valid.push({id,name});usedId.add(id);usedName.add(norm);
    if(valid.length===CATEGORY_LIMIT)break;
   }
-  data.categories=valid.length?valid:DEFAULT_CATEGORIES.map(c=>({...c}));
+  data.categories=valid;
  }
  if(!data.categoryPrefs||typeof data.categoryPrefs!=='object'||Array.isArray(data.categoryPrefs))data.categoryPrefs={};
  const cleanPrefs=Object.create(null);
@@ -218,6 +217,7 @@ function suggestionChips(type,itemId){
  '</div></div>';
 }
 
+normalizeCategories(state);
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(_){}}
 function nextid(prefix){return prefix+(++state.next)}
 function esc(x){return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
