@@ -280,7 +280,7 @@ function screenShop(){
  html+='<section class="hero"><div class="eyebrow">補充・買い物の予定</div><div class="count"><strong>'+(auto.length+manual.length)+'</strong><span>件のお買い物</span></div>';
  html+='<div class="sub">在庫なし '+zero.length+'件 ・ 補充目安 '+low.length+'件 ・ メモ '+manual.length+'件</div></section>';
  if(zero.length)html+='<div class="h2"><h2>在庫なし・優先</h2><span class="hint">'+zero.length+'件</span></div><div class="shop-priority">'+shopGroups(zero,'zero')+'</div>';
- html+='<div class="h2"><h2>'+(zero.length?'補充目安':'補充が必要')+'</h2><span class="hint">目標数まで自動で表示</span></div>';
+ if(low.length||!zero.length)html+='<div class="h2"><h2>'+(zero.length?'補充目安':'補充が必要')+'</h2><span class="hint">目標数まで自動で表示</span></div>';
  if(low.length)html+='<div class="shop-priority">'+shopGroups(low,'low')+'</div>';
  else if(!zero.length)html+='<div class="panel"><div class="empty"><strong>補充が必要なものはありません</strong>目標数に達すると自動で非表示になります。</div></div>';
  html+='<div class="h2"><h2>買い物メモ</h2><button class="linkbtn" data-act="add-manual">＋ 追加</button></div><div class="panel">';
@@ -598,7 +598,7 @@ function finishDrag(commit){
  d.ghost?.remove();
  d.row?.classList.remove('drag-placeholder');
  document.body.classList.remove('drag-in-progress');
- try{d.handle.releasePointerCapture?.(d.pointerId)}catch(_){}
+ try{document.body.releasePointerCapture?.(d.pointerId)}catch(_){}
  if(d.active&&d.group?.isConnected){
   if(!commit){
    const byId=new Map([...d.group.children].filter(el=>el.hasAttribute('data-order-id')).map(el=>[el.dataset.orderId,el]));
@@ -618,8 +618,8 @@ document.addEventListener('pointerdown',e=>{
  dragging={id,pointerId:e.pointerId,categoryId:x.categoryId,row,group,handle,
   startX:e.clientX,startY:e.clientY,x:e.clientX,y:e.clientY,
   originalIds:categoryOrderFromDOM(group),active:false,moved:false,ghost:null,raf:0,timer:0};
- try{handle.setPointerCapture?.(e.pointerId)}catch(_){}
- if(e.pointerType==='touch')dragging.timer=setTimeout(()=>activateDrag(dragging),180);
+ try{document.body.setPointerCapture?.(e.pointerId)}catch(_){}
+ if(e.pointerType==='touch'){const pending=dragging;dragging.timer=setTimeout(()=>activateDrag(pending),180)}
  else activateDrag(dragging);
  e.preventDefault();
 });
@@ -642,7 +642,7 @@ document.addEventListener('pointerup',e=>{
 });
 document.addEventListener('pointercancel',e=>{if(dragging&&e.pointerId===dragging.pointerId)finishDrag(false)});
 document.addEventListener('lostpointercapture',e=>{if(dragging&&e.pointerId===dragging.pointerId)finishDrag(false)});
-window.addEventListener('blur',()=>finishDrag(false));
+window.addEventListener?.('blur',()=>finishDrag(false));
 document.addEventListener('keydown',e=>{if(e.key!=='Enter'||!e.target.matches('input[data-next]'))return;e.preventDefault();const id=e.target.dataset.next, next=id?document.getElementById(id):null;if(next){next.focus()}else{e.target.blur()}});
 document.addEventListener('input',e=>{if(e.target.dataset.bundle){bundleCount[e.target.dataset.bundle]=e.target.value;refreshCompare()}if(e.target.dataset.discount){discount[e.target.dataset.discount]=e.target.value;refreshDiscount()}if(e.target.id==='search'){search=e.target.value;document.querySelectorAll('[data-inventory-row]').forEach(el=>{el.hidden=!el.dataset.name.includes(search.toLowerCase())});document.querySelectorAll('[data-category-section]').forEach(el=>{el.hidden=![...el.querySelectorAll('[data-inventory-row]')].some(row=>!row.hidden)})}if(e.target.id==='itemName'&&modal?.type==='item'&&!modal.categoryTouched){const sel=document.getElementById('itemCategory');if(sel){const guessed=inferCategoryFor(state,e.target.value);sel.value=guessed;modal.categorySelected=guessed}}if(e.target.dataset.compare){cmp[e.target.dataset.compare][e.target.dataset.field]=e.target.value;refreshCompare()}if(e.target.id==='price'&&modal)modal.price=e.target.value;if(e.target.id==='store'&&modal)modal.store=e.target.value;if(e.target.id==='productDetail'&&modal)modal.detail=e.target.value;if(e.target.id==='purVolume'&&modal)modal.volume=e.target.value});
 document.addEventListener('change',e=>{if(e.target.id==='itemCategory'&&modal?.type==='item'){modal.categoryTouched=true;modal.categorySelected=e.target.value}if(e.target.id==='compareLink'){compareLink=e.target.value;render()}if(e.target.dataset.compare){cmp[e.target.dataset.compare][e.target.dataset.field]=e.target.value;refreshCompare()}if(e.target.id==='purUnit'&&modal)modal.vu=e.target.value});
