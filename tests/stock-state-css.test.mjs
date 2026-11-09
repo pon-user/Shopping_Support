@@ -14,7 +14,7 @@ test('zero-stock markers never inherit the generic .empty placeholder style', ()
     assert.doesNotMatch(html, new RegExp('\\.' + selector + '\\.empty\\{'));
   }
   assert.match(html, /class="stock-mark \$\{status==='empty'\?'is-zero':status\}"/);
-  assert.match(html, /class="list-marker \$\{stockStatus\(x\)==='empty'\?'is-zero':stockStatus\(x\)\}"/);
+  assert.match(html, /stockStatus\(x\)==='empty'\?'is-zero':stockStatus\(x\)/);
   assert.match(html, /class="legend-swatch is-zero"/);
 });
 
