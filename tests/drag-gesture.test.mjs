@@ -10,7 +10,7 @@ function fakeClassList(){
 function create(){
  assert.ok(source);
  const code=source.replace("(()=>{'use strict';","return (()=>{'use strict';").replace(
-  "\nrender();\n})();","\nrender();return {state:()=>state,applyCategoryOrder};\n})();");
+  "\nrender();\n})();","\nrender();return {state:()=>state,applyCategoryOrder,enableSort:()=>{reordering=true}};\n})();");
  assert.notEqual(source,code);
  const listeners={},frames=new Map(),timers=new Map(),stateStorage=new Map();
  const counters={seq:0,scroll:0,captures:[],released:[],ghosts:[],animations:0};
@@ -21,6 +21,7 @@ function create(){
  doc,win,{standalone:false},{getItem:k=>stateStorage.get(k)||null,setItem:(k,v)=>stateStorage.set(k,v)},
  fn=>{const id=++counters.seq;timers.set(id,fn);return id},id=>timers.delete(id),()=>{},
  fn=>{const id=++counters.seq;frames.set(id,fn);return id},id=>frames.delete(id));
+ api.enableSort();
  const group={children:[],isConnected:true,
   getBoundingClientRect(){return {top:180-counters.scroll,bottom:180+group.children.length*135-counters.scroll}},
   insertBefore(row,target){this.children.splice(this.children.indexOf(row),1);this.children.splice(this.children.indexOf(target),0,row)},
