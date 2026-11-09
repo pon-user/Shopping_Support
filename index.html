@@ -53,7 +53,7 @@ body.standalone .toast{top:calc(max(58px,env(safe-area-inset-top,0px)) + 7px)}
 .list-marker{display:block;width:5px;height:35px;flex:0 0 5px;border-radius:7px;background:var(--line)}.list-marker.low{background:#e8b56a}.list-marker.is-zero{background:#dd6a66}.list-marker.neutral{background:var(--accent)}
 .item{min-width:0}.item .itembody{min-width:0}.item .itemactions{min-width:0}.item .itemtitle{word-break:break-word}.item .itemmeta{word-break:break-word}
 .item:not(.inventory-item){gap:10px;padding:13px 12px}.item:not(.inventory-item) .itemactions{gap:5px}.item:not(.inventory-item) .itemactions .primary,.item:not(.inventory-item) .itemactions .secondary{padding-inline:10px;font-size:12px}
-.reorder-intro{font-size:11px;line-height:1.4;color:var(--muted);min-width:0;flex:1}.sort-buttons{display:flex;flex-direction:column;gap:3px}.sort-arrow{border:1px solid var(--line);background:var(--surface2);color:var(--ink);height:44px;min-width:44px;border-radius:6px;font-size:13px;line-height:1}.sort-arrow:disabled{opacity:.24}.drag-handle{border:1px solid var(--line);border-radius:var(--radius-sm);height:48px;width:44px;min-width:44px;background:var(--surface);color:var(--muted);font-size:19px;cursor:grab;touch-action:none;user-select:none}.is-dragging{opacity:.7}.drop-target{outline:2px dashed var(--accent);outline-offset:-3px;background:var(--ring)}
+.reorder-intro{font-size:11px;line-height:1.4;color:var(--muted);min-width:0;flex:1}.sort-buttons{display:flex;flex-direction:column;gap:3px}.sort-arrow{border:1px solid var(--line);background:var(--surface2);color:var(--ink);height:44px;min-width:44px;border-radius:6px;font-size:13px;line-height:1}.sort-arrow:disabled{opacity:.24}.drag-handle{border:1px solid var(--line);border-radius:var(--radius-sm);height:48px;width:44px;min-width:44px;background:var(--surface);color:var(--muted);font-size:19px;cursor:grab;touch-action:none;user-select:none}.drag-placeholder{opacity:.24!important;outline:2px dashed var(--accent);outline-offset:-3px;background:var(--accent2)!important}.drag-ghost{position:fixed!important;z-index:200;pointer-events:none!important;touch-action:none;overflow:hidden;opacity:.98;border-radius:var(--radius-sm);border:1px solid var(--accent);background:var(--surface)!important;box-shadow:0 17px 46px #0005,0 5px 18px #0002;will-change:transform;transform-origin:center;transition:box-shadow .16s ease;contain:paint}body.drag-in-progress{user-select:none;-webkit-user-select:none}body.drag-in-progress .category-products{touch-action:pan-y}body.drag-in-progress .drag-handle{cursor:grabbing}
 @media(max-width:374px){.shell{padding-inline:12px}.brand small{letter-spacing:0}.top .brand{gap:7px}.demo{font-size:8px;padding:5px 6px}.metric{padding:10px}.inventory-item{padding:9px 9px;gap:7px}.inventory-item .itemtitle{font-size:13px}.inventory-item .itemmeta{font-size:11px}.inventory-item .itemactions{gap:4px}.inventory-item .iconbtn{min-width:42px}.stock-mark{width:4px;flex-basis:4px}.toolbar-button{font-size:11px;padding-inline:8px}}
 @media(max-width:335px){.stock-toolbar{flex-wrap:wrap}.stock-toolbar>.field,.reorder-intro{flex-basis:100%;order:3}.inventory-item .stock-edit{display:none}}
 
@@ -298,7 +298,7 @@ function screenStock(){
  return `${head('MY INVENTORY','在庫一覧','在庫は未開封品のみ。')}
  <div class="grid2 stock-summary"><div class="metric"><div class="m-head">管理中の商品</div><div class="m-val">${visible.length}<span class="metric-unit">種類</span></div></div><div class="metric"><div class="m-head">補充の対象</div><div class="m-val">${pendingItems().length}<span class="metric-unit">種類</span></div></div></div>
  ${stockLegend()}
- <div class="toolbar stock-toolbar">${reordering?`<div class="reorder-intro">長押しして移動、または矢印で並び替え</div>`:`<input id="search" class="field" enterkeyhint="done" data-next="" value="${esc(search)}" placeholder="商品を探す" aria-label="商品を探す"/>`}
+ <div class="toolbar stock-toolbar">${reordering?`<div class="reorder-intro">長押しで持ち上げ、画面端で自動スクロール。矢印操作も可能（同じ分類内）</div>`:`<input id="search" class="field" enterkeyhint="done" data-next="" value="${esc(search)}" placeholder="商品を探す" aria-label="商品を探す"/>`}
  <button class="secondary toolbar-button" data-act="toggle-reorder" aria-pressed="${reordering}">${reordering?'完了':'並び替え'}</button>${reordering?'':`<button class="secondary toolbar-button add-item" data-act="add-item">＋ 商品</button>`}</div>
  <section class="panel inventory-list" aria-label="在庫商品の一覧">${filtered.length?groups.map(group=>`<section class="category-section" data-category-section><button type="button" class="category-title" data-act="category-toggle" data-id="${esc(group.id)}" aria-expanded="${!collapsedCategoryIds.has(group.id)}"><strong>${esc(group.name)}</strong><span>${group.items.length}件 ${collapsedCategoryIds.has(group.id)?'＋':'−'}</span></button><div class="category-products" ${collapsedCategoryIds.has(group.id)?'hidden':''}>${group.items.map((x,index)=>{
  const status=stockStatus(x),label=status==='empty'?'在庫がありません':status==='low'?'補充目安に達しています':'通常の在庫';
@@ -306,7 +306,7 @@ function screenStock(){
  <span class="stock-mark ${status==='empty'?'is-zero':status}" title="${label}" aria-label="${label}" role="img"><span></span></span>
  <div class="itembody"><div class="stock-name"><${reordering?'span':'button'} class="${reordering?'itemtitle':'cardbutton itemtitle'}" ${reordering?'':`data-act="edit-item" data-id="${x.id}"`} >${esc(x.name)}${reordering?'':' ›'}</${reordering?'span':'button'}></div>
  <div class="itemmeta">在庫 <strong class="stock-count">${x.qty}</strong>${esc(unit(x))} <span class="stock-slash">/</span> 目標 ${x.target}${esc(unit(x))}</div></div>
- <div class="itemactions">${reordering?`<div class="sort-buttons"><button type="button" class="sort-arrow" data-act="reorder-up" data-id="${x.id}" aria-label="${esc(x.name)}を上へ" ${index===0?'disabled':''}>↑</button><button type="button" class="sort-arrow" data-act="reorder-down" data-id="${x.id}" aria-label="${esc(x.name)}を下へ" ${index===group.items.length-1?'disabled':''}>↓</button></div><button type="button" class="drag-handle" data-act="drag-handle" data-id="${x.id}" aria-label="${esc(x.name)}をドラッグして並び替え" title="長押しして移動">☰</button>`:`<button class="iconbtn stock-edit" data-act="edit-item" data-id="${x.id}" aria-label="${esc(x.name)}を編集">···</button><button class="iconbtn solid stock-decrease" data-act="open" data-id="${x.id}" ${x.qty===0?'disabled':''} aria-label="${esc(x.name)}を開封して在庫を1減らす">−1</button>`}</div>
+ <div class="itemactions">${reordering?`<div class="sort-buttons"><button type="button" class="sort-arrow" data-act="reorder-up" data-id="${x.id}" aria-label="${esc(x.name)}を上へ" ${index===0?'disabled':''}>↑</button><button type="button" class="sort-arrow" data-act="reorder-down" data-id="${x.id}" aria-label="${esc(x.name)}を下へ" ${index===group.items.length-1?'disabled':''}>↓</button></div><button type="button" class="drag-handle" data-act="drag-handle" data-id="${x.id}" aria-label="${esc(x.name)}を長押しして分類内で移動" title="長押しして移動">☰</button>`:`<button class="iconbtn stock-edit" data-act="edit-item" data-id="${x.id}" aria-label="${esc(x.name)}を編集">···</button><button class="iconbtn solid stock-decrease" data-act="open" data-id="${x.id}" ${x.qty===0?'disabled':''} aria-label="${esc(x.name)}を開封して在庫を1減らす">−1</button>`}</div>
  </article>`}).join('')}</div></section>`).join(''):`<div class="empty"><strong>該当する商品はありません</strong>新しく登録できます。</div>`}</section>
  <p class="stock-note">開封したら「−1」。</p>`
 }
@@ -518,26 +518,131 @@ case 'undo':{const cb=lastUndo;clearToast();if(cb)cb();notify('直前の操作�
 document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(t)click(t);else if(e.target.id==='overlay'){modal=null;render()}});
 // iPhone: pointer-based handle drag (HTML5 drag/drop is unreliable on touch Safari).
 // The up/down buttons provide a non-drag fallback and accessible operation.
+
+// Drag & reorder: a floating clone follows the pointer while the original row
+// becomes a movable placeholder. Touch long-press prevents accidental reorders.
+function categoryOrderFromDOM(group){
+ return [...group.children].filter(el=>el.hasAttribute('data-order-id')).map(el=>el.dataset.orderId);
+}
+function applyCategoryOrder(categoryId,ids){
+ const positions=[],original=[];
+ state.items.forEach((x,index)=>{if(!x.archived&&x.categoryId===categoryId){positions.push(index);original.push(x)}});
+ if(positions.length!==ids.length||new Set(ids).size!==ids.length)return false;
+ const byId=new Map(original.map(x=>[x.id,x]));
+ if(ids.some(id=>!byId.has(id))||ids.every((id,i)=>id===original[i].id))return false;
+ positions.forEach((index,i)=>{state.items[index]=byId.get(ids[i])});
+ save();
+ return true;
+}
+function dragEdgeVelocity(y,height,top,bottom){
+ const topEdge=80,bottomEdge=height-102,margin=88;
+ if(y<topEdge&&top<topEdge-12)return -Math.min(25,Math.max(4,(topEdge-y)*.3));
+ if(y>bottomEdge-margin&&bottom>bottomEdge+12)return Math.min(25,Math.max(4,(y-(bottomEdge-margin))*.3));
+ return 0;
+}
+function updateDragPlaceholder(d){
+ if(!d.active||!d.group.isConnected)return;
+ const siblings=[...d.group.children].filter(el=>el!==d.row&&el.hasAttribute('data-order-id'));
+ let target=null;
+ for(const el of siblings){
+  const r=el.getBoundingClientRect();
+  if(d.y<r.top+r.height/2){target=el;break}
+ }
+ if(target===d.row.nextElementSibling||(!target&&d.row===d.group.lastElementChild))return;
+ const before=new Map(siblings.map(el=>[el,el.getBoundingClientRect().top]));
+ if(target)d.group.insertBefore(d.row,target);
+ else d.group.appendChild(d.row);
+ const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+ if(!reduced)for(const el of siblings){
+  const delta=before.get(el)-el.getBoundingClientRect().top;
+  if(Math.abs(delta)>1)el.animate?.([{transform:'translate3d(0,'+delta+'px,0)'},{transform:'translate3d(0,0,0)'}],{duration:170,easing:'cubic-bezier(.2,.8,.2,1)'});
+ }
+ d.moved=true;
+}
+function drawDragGhost(d){
+ if(d.ghost)d.ghost.style.transform='translate3d('+(d.x-d.startX)+'px,'+(d.y-d.startY)+'px,0) scale(1.035)';
+}
+function dragScrollFrame(){
+ const d=dragging;if(!d||!d.active)return;
+ const bounds=d.group.getBoundingClientRect();
+ const height=window.visualViewport?.height||window.innerHeight;
+ const speed=dragEdgeVelocity(d.y,height,bounds.top,bounds.bottom);
+ if(speed&&d.group.isConnected){
+  window.scrollBy(0,speed);
+  updateDragPlaceholder(d);
+ }
+ d.raf=requestAnimationFrame(dragScrollFrame);
+}
+function activateDrag(d){
+ if(dragging!==d||d.active||!d.row.isConnected)return;
+ d.active=true;
+ const rect=d.row.getBoundingClientRect(),ghost=d.row.cloneNode(true);
+ ghost.classList.add('drag-ghost');ghost.classList.remove('drag-placeholder');
+ ghost.removeAttribute('data-order-id');ghost.removeAttribute('data-inventory-row');
+ ghost.setAttribute('aria-hidden','true');
+ ghost.style.left=rect.left+'px';ghost.style.top=rect.top+'px';
+ ghost.style.width=rect.width+'px';ghost.style.height=rect.height+'px';
+ document.body.appendChild(ghost);
+ d.ghost=ghost;
+ d.row.classList.add('drag-placeholder');
+ document.body.classList.add('drag-in-progress');
+ drawDragGhost(d);
+ if(navigator.vibrate)navigator.vibrate(8);
+ d.raf=requestAnimationFrame(dragScrollFrame);
+}
+function finishDrag(commit){
+ const d=dragging;if(!d)return;
+ dragging=null;
+ if(d.timer)clearTimeout(d.timer);
+ if(d.raf)cancelAnimationFrame(d.raf);
+ d.ghost?.remove();
+ d.row?.classList.remove('drag-placeholder');
+ document.body.classList.remove('drag-in-progress');
+ try{d.handle.releasePointerCapture?.(d.pointerId)}catch(_){}
+ if(d.active&&d.group?.isConnected){
+  if(!commit){
+   const byId=new Map([...d.group.children].filter(el=>el.hasAttribute('data-order-id')).map(el=>[el.dataset.orderId,el]));
+   d.originalIds.forEach(id=>{if(byId.has(id))d.group.appendChild(byId.get(id))});
+  }else if(applyCategoryOrder(d.categoryId,categoryOrderFromDOM(d.group))){
+   render();
+  }
+ }
+}
 document.addEventListener('pointerdown',e=>{
- const handle=e.target.closest('[data-act="drag-handle"]');if(!handle||!reordering)return;
- dragging={id:handle.dataset.id,pointerId:e.pointerId};handle.setPointerCapture?.(e.pointerId);
- const row=handle.closest('[data-order-id]');row?.classList.add('is-dragging');
+ const handle=e.target.closest('[data-act="drag-handle"]');
+ if(!handle||!reordering||dragging)return;
+ const row=handle.closest('[data-order-id]'),group=row?.closest('.category-products');
+ if(!row||!group)return;
+ const id=row.dataset.orderId,x=one(id);
+ if(!x||x.archived)return;
+ dragging={id,pointerId:e.pointerId,categoryId:x.categoryId,row,group,handle,
+  startX:e.clientX,startY:e.clientY,x:e.clientX,y:e.clientY,
+  originalIds:categoryOrderFromDOM(group),active:false,moved:false,ghost:null,raf:0,timer:0};
+ try{handle.setPointerCapture?.(e.pointerId)}catch(_){}
+ if(e.pointerType==='touch')dragging.timer=setTimeout(()=>activateDrag(dragging),180);
+ else activateDrag(dragging);
  e.preventDefault();
 });
 document.addEventListener('pointermove',e=>{
- if(!dragging||dragging.pointerId!==e.pointerId)return;
- document.querySelectorAll('.drop-target').forEach(el=>el.classList.remove('drop-target'));
- const over=document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-order-id]');
- if(over&&over.dataset.orderId!==dragging.id&&one(over.dataset.orderId)?.categoryId===one(dragging.id)?.categoryId)over.classList.add('drop-target');
+ const d=dragging;
+ if(!d||e.pointerId!==d.pointerId)return;
+ d.x=e.clientX;d.y=e.clientY;
+ if(!d.active){
+  if(Math.hypot(d.x-d.startX,d.y-d.startY)>12)finishDrag(false);
+  return;
+ }
+ e.preventDefault();
+ drawDragGhost(d);
+ updateDragPlaceholder(d);
 });
 document.addEventListener('pointerup',e=>{
- if(!dragging||dragging.pointerId!==e.pointerId)return;
- const over=document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-order-id]');
- const changed=over&&one(over.dataset.orderId)?.categoryId===one(dragging.id)?.categoryId?moveItem(dragging.id,over.dataset.orderId):false;
- dragging=null;document.querySelectorAll('.is-dragging,.drop-target').forEach(el=>el.classList.remove('is-dragging','drop-target'));
- if(changed)render();
+ const d=dragging;if(!d||e.pointerId!==d.pointerId)return;
+ if(d.active){d.x=e.clientX;d.y=e.clientY;updateDragPlaceholder(d)}
+ finishDrag(true);
 });
-document.addEventListener('pointercancel',()=>{dragging=null;document.querySelectorAll('.is-dragging,.drop-target').forEach(el=>el.classList.remove('is-dragging','drop-target'))});
+document.addEventListener('pointercancel',e=>{if(dragging&&e.pointerId===dragging.pointerId)finishDrag(false)});
+document.addEventListener('lostpointercapture',e=>{if(dragging&&e.pointerId===dragging.pointerId)finishDrag(false)});
+window.addEventListener('blur',()=>finishDrag(false));
 document.addEventListener('keydown',e=>{if(e.key!=='Enter'||!e.target.matches('input[data-next]'))return;e.preventDefault();const id=e.target.dataset.next, next=id?document.getElementById(id):null;if(next){next.focus()}else{e.target.blur()}});
 document.addEventListener('input',e=>{if(e.target.dataset.bundle){bundleCount[e.target.dataset.bundle]=e.target.value;refreshCompare()}if(e.target.dataset.discount){discount[e.target.dataset.discount]=e.target.value;refreshDiscount()}if(e.target.id==='search'){search=e.target.value;document.querySelectorAll('[data-inventory-row]').forEach(el=>{el.hidden=!el.dataset.name.includes(search.toLowerCase())});document.querySelectorAll('[data-category-section]').forEach(el=>{el.hidden=![...el.querySelectorAll('[data-inventory-row]')].some(row=>!row.hidden)})}if(e.target.id==='itemName'&&modal?.type==='item'&&!modal.categoryTouched){const sel=document.getElementById('itemCategory');if(sel){const guessed=inferCategoryFor(state,e.target.value);sel.value=guessed;modal.categorySelected=guessed}}if(e.target.dataset.compare){cmp[e.target.dataset.compare][e.target.dataset.field]=e.target.value;refreshCompare()}if(e.target.id==='price'&&modal)modal.price=e.target.value;if(e.target.id==='store'&&modal)modal.store=e.target.value;if(e.target.id==='productDetail'&&modal)modal.detail=e.target.value;if(e.target.id==='purVolume'&&modal)modal.volume=e.target.value});
 document.addEventListener('change',e=>{if(e.target.id==='itemCategory'&&modal?.type==='item'){modal.categoryTouched=true;modal.categorySelected=e.target.value}if(e.target.id==='compareLink'){compareLink=e.target.value;render()}if(e.target.dataset.compare){cmp[e.target.dataset.compare][e.target.dataset.field]=e.target.value;refreshCompare()}if(e.target.id==='purUnit'&&modal)modal.vu=e.target.value});
