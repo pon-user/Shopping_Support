@@ -36,7 +36,8 @@ function create(){
   return element;
  }
  group.children=api.state().items.filter(x=>!x.archived&&x.categoryId==='cat-daily').map(x=>row(x.id));
- const h={dataset:{id:group.children[0].dataset.orderId},closest:key=>key==='[data-order-id]'?group.children[0]:null};
+ const h={dataset:{id:group.children[0].dataset.orderId}};
+ h.closest=key=>key==='[data-act="drag-handle"]'?h:key==='[data-order-id]'?group.children[0]:null;
  const pointer=(type,y,pointerType='touch')=>({
   pointerId:7,clientX:250,clientY:y,pointerType,target:h,preventDefault(){this.prevented=true}
  });
