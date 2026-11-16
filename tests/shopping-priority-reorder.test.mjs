@@ -7,7 +7,7 @@ function app(){
  assert.ok(source);
  const code=source.replace("(()=>{'use strict';","return (()=>{'use strict';").replace(
   "\nrender();\n})();",
-  "\nrender();return {state:()=>state,screenShop,screenStock,shopGroups,stockLegend,click,applyCategoryOrder,dragEdgeVelocity};\n})();"
+  "\nrender();return {state:()=>state,modal:()=>modal,screenShop,screenStock,shopGroups,stockLegend,click,applyCategoryOrder,dragEdgeVelocity};\n})();"
  );
  assert.notEqual(code,source);
  const appEl={innerHTML:''},store=new Map(),listeners={};
@@ -86,4 +86,61 @@ test('touch gesture implementation uses stable capture, floating ghost and FLIP 
  assert.match(html,/window\.scrollBy\(0,speed\)/);
  assert.match(html,/pointercancel/);
  assert.match(html,/sort-arrow/);
+});
+
+test('each active shopping memo has purchased and delete actions',()=>{
+ const {api}=app(),st=api.state();
+ st.manual.push({id:'m-delete-a',name:'削除確認用メモ',done:false});
+ const screen=api.screenShop();
+ assert.match(screen,/data-act="manual-done" data-id="m-delete-a"/);
+ assert.match(screen,/data-act="manual-delete" data-id="m-delete-a"/);
+ assert.match(screen,/aria-label="削除確認用メモのメモを削除"/);
+});
+test('delete button opens named confirmation without changing data',()=>{
+ const {api,store}=app(),st=api.state();
+ st.manual.push({id:'m-confirm',name:'牛乳',done:false});
+ const before=JSON.stringify(st),logs=JSON.stringify(st.logs);
+ api.click({dataset:{act:'manual-delete',id:'m-confirm'}});
+ assert.equal(api.modal().type,'confirm');
+ assert.match(api.modal().title,/削除しますか/);
+ assert.match(api.modal().message,/牛乳/);
+ assert.equal(api.modal().confirmText,'削除する');
+ assert.equal(JSON.stringify(api.state()),before);
+ assert.equal(JSON.stringify(api.state().logs),logs);
+ assert.ok(!store.has('shopping-support-ux-demo-v03')||store.get('shopping-support-ux-demo-v03'));
+});
+test('cancel removes modal but preserves shopping memo',()=>{
+ const {api}=app(),st=api.state();
+ st.manual.push({id:'m-cancel',name:'コーヒーフィルター',done:false});
+ api.click({dataset:{act:'manual-delete',id:'m-cancel'}});
+ api.click({dataset:{act:'modal-close'}});
+ assert.equal(api.modal(),null);
+ assert.equal(api.state().manual.some(x=>x.id==='m-cancel'),true);
+});
+test('confirmation removes only requested memo, does not log a purchase, and supports undo',()=>{
+ const {api,store}=app(),st=api.state();
+ st.manual.push({id:'m-remove',name:'袋',done:false},{id:'m-keep',name:'テープ',done:false});
+ const logsBefore=JSON.stringify(st.logs),itemsBefore=JSON.stringify(st.items);
+ api.click({dataset:{act:'manual-delete',id:'m-remove'}});
+ api.click({dataset:{act:'confirm'}});
+ assert.equal(api.state().manual.some(x=>x.id==='m-remove'),false);
+ assert.equal(api.state().manual.some(x=>x.id==='m-keep'),true);
+ assert.equal(JSON.stringify(api.state().logs),logsBefore);
+ assert.equal(JSON.stringify(api.state().items),itemsBefore);
+ assert.equal(JSON.parse(store.get('shopping-support-ux-demo-v03')).manual.some(x=>x.id==='m-remove'),false);
+ api.click({dataset:{act:'undo'}});
+ assert.equal(api.state().manual.some(x=>x.id==='m-remove'),true);
+ assert.equal(api.state().manual.some(x=>x.id==='m-keep'),true);
+ assert.equal(JSON.stringify(api.state().logs),logsBefore);
+});
+test('delete ignores nonexistent and already completed memo IDs',()=>{
+ const {api}=app(),st=api.state();
+ const before=JSON.stringify(st);
+ api.click({dataset:{act:'manual-delete',id:'no-such-memo'}});
+ assert.equal(api.modal(),null);
+ st.manual.push({id:'m-finished',name:'済',done:true});
+ api.click({dataset:{act:'manual-delete',id:'m-finished'}});
+ assert.equal(api.modal(),null);
+ assert.equal(JSON.stringify(st),JSON.stringify(api.state()));
+ assert.ok(JSON.stringify(api.state()).length>before.length);
 });
